@@ -129,6 +129,7 @@ void CabConvolutionEngine::prepare (const juce::dsp::ProcessSpec& spec)
     loCutEngagedPreviously = lastLoCutHz > loCutMinHz + bypassEpsilonHz;
     hiCutEngagedPreviously = lastHiCutHz < hiCutMaxHz - bypassEpsilonHz;
     distanceEngagedPreviously = lastDistancePercent > distanceMinPercent + distanceBypassEpsilonPercent;
+    blendEngagedPreviously = lastBlendProportion > blendBypassEpsilon;
 }
 
 void CabConvolutionEngine::reset()
@@ -308,8 +309,23 @@ void CabConvolutionEngine::process (juce::dsp::AudioBlock<float>& block)
         distanceHighShelfFilter.reset();
     }
 
+    // Same idea for convolutionB: it keeps no history of its own bypass
+    // state, so without this it's the one exception in this function that
+    // never gets reset on a disengaged->engaged transition (see #12).
+    // convolutionB.process() is skipped entirely for every block Blend is
+    // disengaged (below), which freezes its internal overlap-add buffer
+    // rather than decaying it - left unreset, that stale, time-decoupled
+    // tail would be added back into the output the moment Blend re-engages.
+    // juce::dsp::Convolution::reset() is documented noexcept/real-time safe
+    // (JUCE 8.0.14 juce_Convolution.h) and this engine already calls it from
+    // the audio thread via CabConvolutionEngine::reset(), so this is safe
+    // here too.
+    if (blendEngaged && ! blendEngagedPreviously)
+        convolutionB.reset();
+
     loCutEngagedPreviously = ! loCutBypassed;
     hiCutEngagedPreviously = ! hiCutBypassed;
+    blendEngagedPreviously = blendEngaged;
     distanceEngagedPreviously = ! distanceBypassed;
 
     if (! loCutBypassed)

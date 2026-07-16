@@ -216,11 +216,19 @@ private:
     bool anyImpulseResponseBLoaded = false;
 
     // Previous block's engaged (i.e. not bypassed) state for LoCut/HiCut/
-    // Distance, used to detect bypassed->engaged transitions so the
-    // filter(s) can be reset to a clean state exactly then (see process()).
+    // Distance/Blend, used to detect bypassed->engaged transitions so the
+    // filter(s)/convolution engine can be reset to a clean state exactly
+    // then (see process()). Blend's counterpart is convolutionB: unlike
+    // LoCut/HiCut/Distance's IIR filters, convolutionB is a stateful
+    // juce::dsp::Convolution whose internal overlap-add buffer keeps
+    // accumulating output for future blocks even after the engine stops
+    // calling its process() (see the Blend disengaged-branch below) - left
+    // unreset, that stale, time-decoupled tail gets added back into the
+    // output on re-engagement (see #12).
     bool loCutEngagedPreviously = false;
     bool hiCutEngagedPreviously = false;
     bool distanceEngagedPreviously = false;
+    bool blendEngagedPreviously = false;
 
     // IR A's most recently loaded onset sample/rate, recorded by
     // setImpulseResponse()/loadDefaultImpulseResponse() and used as the

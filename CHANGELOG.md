@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`convolutionB` not reset on Blend's disengaged->engaged transition** (#12): unlike LoCut/HiCut/Distance, IR B's convolution engine kept no history of its own bypass state, so its internal overlap-add tail could go stale (frozen, not decaying) while Blend was disengaged and then leak into the output the moment Blend re-engaged. `CabConvolutionEngine` now tracks `blendEngagedPreviously` and calls `convolutionB.reset()` on the same disengaged->engaged transition the other stages already handle.
+
 ## [0.1.0] - 2026-07-14
 
 ### Added
